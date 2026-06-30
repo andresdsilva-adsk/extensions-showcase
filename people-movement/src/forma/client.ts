@@ -1,4 +1,5 @@
 import type { GridSpec, Point } from "../movement/types";
+import { clearPointColumns, updatePointColumns } from "./columns";
 
 export type FormaSdk = Awaited<
   typeof import("forma-embedded-view-sdk/auto")
@@ -28,7 +29,7 @@ export async function loadForma(): Promise<FormaSdk> {
 export async function pickPoint(Forma: FormaSdk): Promise<Point | null> {
   const pos = await Forma.designTool.getPoint();
   if (!pos) return null;
-  return { x: pos.x, y: pos.y };
+  return { x: pos.x, y: pos.y, z: pos.z };
 }
 
 function markerRadiusPx(cellSize: number): number {
@@ -141,6 +142,8 @@ export async function updatePointMarkers(
   destinations: Point[],
   grid?: GridSpec,
 ): Promise<void> {
+  await updatePointColumns(Forma, sources, destinations);
+
   if (!grid || (sources.length === 0 && destinations.length === 0)) {
     try {
       await Forma.terrain.groundTexture.remove({ name: MARKER_TEXTURE });
@@ -207,6 +210,7 @@ export async function clearAllVisuals(Forma: FormaSdk): Promise<void> {
     clearFlowOverlay(Forma),
     clearFlowColorbar(Forma),
     clearPointMarkers(Forma),
+    clearPointColumns(Forma),
   ]);
 }
 

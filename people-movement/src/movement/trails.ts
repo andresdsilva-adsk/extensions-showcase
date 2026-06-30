@@ -1,5 +1,5 @@
 import { gridIndex, inBounds, NEIGHBOR_OFFSETS, worldToGrid } from "./grid";
-import type { FlowStats, GridSpec, Point } from "./types";
+import type { FlowStats, GridSpec, Point, TrailSimulationResult } from "./types";
 import { IMPASSABLE } from "./types";
 
 export interface TrailOptions {
@@ -16,18 +16,20 @@ const DEFAULT_TRAIL_OPTIONS: TrailOptions = {
 
 /**
  * Probabilistically walk from each source downhill on a cost field toward
- * destinations, accumulating a visit heatmap. Mirrors Pathmaker's map-based
- * trail simulation used for pedestrian desire-line analysis.
+ * destinations, accumulating separate visit heatmaps for completed and
+ * incomplete walks.
  */
 export function simulateTrails(
   costField: number[][],
   sources: Point[],
   grid: GridSpec,
   options: Partial<TrailOptions> = {},
-): { heatmap: Float32Array; stats: FlowStats } {
+): TrailSimulationResult {
   const opts = { ...DEFAULT_TRAIL_OPTIONS, ...options };
-  const heatmap = new Float32Array(grid.nx * grid.ny);
-  let maxVisits = 0;
+  const heatmapCompleted = new Float32Array(grid.nx * grid.ny);
+  const heatmapIncomplete = new Float32Array(grid.nx * grid.ny);
+  let maxCompletedVisits = 0;
+  let maxIncompleteVisits = 0;
   let totalWalks = 0;
   let completedWalks = 0;
 
@@ -39,6 +41,7 @@ export function simulateTrails(
       let col = start.col;
       let row = start.row;
       let reachedGoal = false;
+      const trailCells: Array<[number, number]> = [];
 
       for (let step = 0; step < opts.maxSteps; step++) {
         if (!inBounds(col, row, grid)) break;
@@ -49,9 +52,7 @@ export function simulateTrails(
         }
         if (currentCost < 0 || currentCost >= IMPASSABLE) break;
 
-        const idx = gridIndex(col, row, grid.nx);
-        heatmap[idx] += 1;
-        maxVisits = Math.max(maxVisits, heatmap[idx]);
+        trailCells.push([col, row]);
 
         const neighbors: Array<[number, number, number]> = [];
         for (const [dc, dr] of NEIGHBOR_OFFSETS) {
@@ -88,14 +89,30 @@ export function simulateTrails(
         row = chosen[2];
       }
 
+      const targetHeatmap = reachedGoal ? heatmapCompleted : heatmapIncomplete;
       if (reachedGoal) completedWalks += 1;
+
+      for (const [c, r] of trailCells) {
+        const idx = gridIndex(c, r, grid.nx);
+        targetHeatmap[idx] += 1;
+        if (reachedGoal) {
+          maxCompletedVisits = Math.max(maxCompletedVisits, targetHeatmap[idx]);
+        } else {
+          maxIncompleteVisits = Math.max(maxIncompleteVisits, targetHeatmap[idx]);
+        }
+      }
     }
   }
 
-  return {
-    heatmap,
-    stats: { maxVisits, totalWalks, completedWalks },
+  const stats: FlowStats = {
+    maxVisits: Math.max(maxCompletedVisits, maxIncompleteVisits),
+    maxCompletedVisits,
+    maxIncompleteVisits,
+    totalWalks,
+    completedWalks,
   };
+
+  return { heatmapCompleted, heatmapIncomplete, stats };
 }
 
 export function heatmapToCanvas(
@@ -126,5 +143,39 @@ export function heatmapToCanvas(
     image.data[i * 4 + 3] = Math.round(alpha * 220);
   }
   ctx.putImageData(image, 0, 0);
+  return canvas;
+}
+
+export interface FlowLayerVisibility {
+  completed: boolean;
+  incomplete: boolean;
+}
+
+export function compositeFlowCanvas(
+  completed: Float32Array,
+  incomplete: Float32Array,
+  grid: GridSpec,
+  visibility: FlowLayerVisibility,
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = grid.nx;
+  canvas.height = grid.ny;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+
+  if (visibility.incomplete) {
+    ctx.drawImage(
+      heatmapToCanvas(incomplete, grid, { r: 90, g: 110, b: 210 }),
+      0,
+      0,
+    );
+  }
+  if (visibility.completed) {
+    ctx.drawImage(
+      heatmapToCanvas(completed, grid, { r: 255, g: 80, b: 40 }),
+      0,
+      0,
+    );
+  }
   return canvas;
 }

@@ -119,6 +119,21 @@ body {
   font-weight: 500;
 }
 
+.muted-strong {
+  color: var(--pm-text);
+  font-weight: 600;
+}
+
+.field__inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--pm-muted);
+}
+
 .placement-banner {
   border: 2px solid;
   border-radius: 6px;
@@ -189,11 +204,6 @@ body {
 
 .placement-banner__done:hover {
   filter: brightness(1.05);
-}
-
-.placement-banner__done--waiting {
-  background: #6e6e6e;
-  cursor: default;
 }
 
 .placement-banner__hint {

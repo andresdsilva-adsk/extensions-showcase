@@ -1,6 +1,7 @@
 export interface Point {
   x: number;
   y: number;
+  z?: number;
 }
 
 export interface Bbox {
@@ -53,12 +54,14 @@ export const IMPASSABLE = 10_000;
 
 export interface FlowStats {
   maxVisits: number;
+  maxCompletedVisits: number;
+  maxIncompleteVisits: number;
   totalWalks: number;
   completedWalks: number;
 }
 
-export interface SimulationResult {
-  heatmap: Float32Array;
-  grid: GridSpec;
+export interface TrailSimulationResult {
+  heatmapCompleted: Float32Array;
+  heatmapIncomplete: Float32Array;
   stats: FlowStats;
 }

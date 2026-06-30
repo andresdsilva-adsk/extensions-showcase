@@ -56,16 +56,10 @@ export function PointList({ kind, points, onRemove, disabled }: PointListProps) 
 interface PlacementBannerProps {
   kind: "source" | "destination";
   count: number;
-  waitingForEscape: boolean;
   onDone: () => void;
 }
 
-export function PlacementBanner({
-  kind,
-  count,
-  waitingForEscape,
-  onDone,
-}: PlacementBannerProps) {
+export function PlacementBanner({ kind, count, onDone }: PlacementBannerProps) {
   const isSource = kind === "source";
   const title = isSource ? "Placing origins" : "Placing destinations";
   const markerLabel = isSource ? "O1, O2…" : "D1, D2…";
@@ -82,8 +76,9 @@ export function PlacementBanner({
         <h3 className="placement-banner__title">{title}</h3>
       </div>
       <p className="placement-banner__text">
-        Click in the <strong>3D scene</strong> to drop {noun} points. Markers appear
-        immediately as <strong>{markerLabel}</strong> on the ground.
+        Click in the <strong>3D scene</strong> to drop {noun} points. Each point
+        shows as a <strong>{isSource ? "blue" : "orange"} column</strong> and a
+        ground marker <strong>{markerLabel}</strong>.
       </p>
       {count > 0 && (
         <p className="placement-banner__count">
@@ -91,35 +86,9 @@ export function PlacementBanner({
           {count === 1 ? "" : "s"} placed so far
         </p>
       )}
-      <WeaveDoneButton onDone={onDone} waitingForEscape={waitingForEscape} kind={kind} />
-      <p className="placement-banner__hint">
-        {waitingForEscape
-          ? "Press Escape in the 3D view to confirm exit."
-          : "When finished, click Done or press Escape in the 3D view."}
-      </p>
+      <button type="button" className="placement-banner__done" onClick={onDone}>
+        {isSource ? "Done placing origins" : "Done placing destinations"}
+      </button>
     </section>
-  );
-}
-
-function WeaveDoneButton({
-  onDone,
-  waitingForEscape,
-  kind,
-}: {
-  onDone: () => void;
-  waitingForEscape: boolean;
-  kind: "source" | "destination";
-}) {
-  const label =
-    kind === "source" ? "Done placing origins" : "Done placing destinations";
-
-  return (
-    <button
-      type="button"
-      className={`placement-banner__done${waitingForEscape ? " placement-banner__done--waiting" : ""}`}
-      onClick={onDone}
-    >
-      {waitingForEscape ? "Press Escape in 3D view…" : label}
-    </button>
   );
 }

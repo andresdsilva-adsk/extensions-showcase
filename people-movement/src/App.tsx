@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearAllVisuals,
+  clearFlowOverlay,
   DESTINATION_COLOR,
   getTerrainGridSpec,
   isFormaHost,
@@ -17,7 +18,12 @@ import { runAgentSimulation } from "./movement/agents";
 import { worldToGrid } from "./movement/grid";
 import { dijkstraFromGoals } from "./movement/pathfinding";
 import { buildSceneLayers } from "./movement/sceneData";
-import { heatmapToCanvas, simulateTrails } from "./movement/trails";
+import {
+  compositeFlowCanvas,
+  heatmapToCanvas,
+  simulateTrails,
+} from "./movement/trails";
+import type { GridSpec } from "./movement/types";
 import type {
   AgentWeights,
   FlowStats,
@@ -33,6 +39,7 @@ import {
   WeaveBanner,
   WeaveButton,
   WeaveSelect,
+  WeaveToggle,
   ensureWeave,
 } from "./ui/weave";
 
@@ -63,8 +70,14 @@ export default function App() {
   const [sources, setSources] = useState<Point[]>([]);
   const [destinations, setDestinations] = useState<Point[]>([]);
   const [picking, setPicking] = useState<"source" | "destination" | null>(null);
-  const [waitingForEscape, setWaitingForEscape] = useState(false);
   const [running, setRunning] = useState(false);
+  const [showCompletedWalks, setShowCompletedWalks] = useState(true);
+  const [showIncompleteWalks, setShowIncompleteWalks] = useState(true);
+  const [flowResult, setFlowResult] = useState<{
+    grid: GridSpec;
+    heatmapCompleted: Float32Array;
+    heatmapIncomplete: Float32Array;
+  } | null>(null);
   const [progress, setProgress] = useState({ phase: "", done: 0, total: 0 });
   const [status, setStatus] = useState<Status>({ kind: "info", message: "Loading…" });
   const [stats, setStats] = useState<FlowStats | null>(null);
@@ -75,6 +88,7 @@ export default function App() {
   const [agentWeights] = useState<AgentWeights>(DEFAULT_AGENT_WEIGHTS);
   const abortRef = useRef<AbortController | null>(null);
   const stopPickingRef = useRef(false);
+  const pickSessionRef = useRef(0);
   const sourcesRef = useRef<Point[]>([]);
   const destinationsRef = useRef<Point[]>([]);
   const pickingRef = useRef<"source" | "destination" | null>(null);
@@ -149,58 +163,77 @@ export default function App() {
   );
 
   const finishPicking = useCallback(() => {
+    pickSessionRef.current += 1;
     stopPickingRef.current = true;
-    setWaitingForEscape(true);
+    setPicking(null);
     setStatus({
-      kind: "warning",
-      message: "Press Escape in the 3D view to exit placement mode.",
+      kind: "info",
+      message: "Placement finished. Run the simulation when ready.",
     });
   }, []);
 
+  const requestNextPoint = useCallback(
+    async (kind: "source" | "destination", session: number) => {
+      if (!sdk || session !== pickSessionRef.current || stopPickingRef.current) {
+        return;
+      }
+
+      const point = await pickPoint(sdk);
+      if (session !== pickSessionRef.current) return;
+
+      if (!point || stopPickingRef.current) {
+        setPicking(null);
+        stopPickingRef.current = false;
+        setStatus({
+          kind: "info",
+          message: "Placement finished. Run the simulation when ready.",
+        });
+        return;
+      }
+
+      let nextSources = sourcesRef.current;
+      let nextDestinations = destinationsRef.current;
+
+      if (kind === "source") {
+        nextSources = [...sourcesRef.current, point];
+        setSources(nextSources);
+        sourcesRef.current = nextSources;
+      } else {
+        nextDestinations = [...destinationsRef.current, point];
+        setDestinations(nextDestinations);
+        destinationsRef.current = nextDestinations;
+      }
+
+      await refreshMarkers(nextSources, nextDestinations);
+
+      if (
+        session === pickSessionRef.current &&
+        pickingRef.current === kind &&
+        !stopPickingRef.current
+      ) {
+        void requestNextPoint(kind, session);
+      }
+    },
+    [sdk, refreshMarkers],
+  );
+
   const startPicking = useCallback(
-    async (kind: "source" | "destination") => {
+    (kind: "source" | "destination") => {
       if (!sdk || pickingRef.current) return;
 
       stopPickingRef.current = false;
-      setWaitingForEscape(false);
+      const session = pickSessionRef.current;
       setPicking(kind);
       setStatus({
         kind: "info",
         message:
           kind === "source"
-            ? "Click in the 3D scene to place origins. Markers appear on the ground as O1, O2…"
-            : "Click in the 3D scene to place destinations. Markers appear on the ground as D1, D2…",
+            ? "Click in the 3D scene to place origins. Blue columns mark each point."
+            : "Click in the 3D scene to place destinations. Orange columns mark each point.",
       });
-
-      while (!stopPickingRef.current) {
-        const point = await pickPoint(sdk);
-        if (!point) break;
-
-        let nextSources = sourcesRef.current;
-        let nextDestinations = destinationsRef.current;
-
-        if (kind === "source") {
-          nextSources = [...sourcesRef.current, point];
-          setSources(nextSources);
-          sourcesRef.current = nextSources;
-        } else {
-          nextDestinations = [...destinationsRef.current, point];
-          setDestinations(nextDestinations);
-          destinationsRef.current = nextDestinations;
-        }
-
-        await refreshMarkers(nextSources, nextDestinations);
-      }
-
-      setPicking(null);
-      setWaitingForEscape(false);
-      stopPickingRef.current = false;
-      setStatus({
-        kind: "info",
-        message: "Placement finished. Run the simulation when ready.",
-      });
+      void requestNextPoint(kind, session);
     },
-    [sdk, refreshMarkers],
+    [sdk, requestNextPoint],
   );
 
   const removeSource = useCallback(
@@ -221,6 +254,21 @@ export default function App() {
     [sources, destinations, refreshMarkers],
   );
 
+  useEffect(() => {
+    if (!sdk || !flowResult || mode !== "flow") return;
+    if (!showCompletedWalks && !showIncompleteWalks) {
+      void clearFlowOverlay(sdk);
+      return;
+    }
+    const canvas = compositeFlowCanvas(
+      flowResult.heatmapCompleted,
+      flowResult.heatmapIncomplete,
+      flowResult.grid,
+      { completed: showCompletedWalks, incomplete: showIncompleteWalks },
+    );
+    void showFlowOverlay(sdk, canvas, flowResult.grid);
+  }, [sdk, flowResult, mode, showCompletedWalks, showIncompleteWalks]);
+
   const runSimulation = useCallback(async () => {
     if (!sdk) return;
     if (sources.length === 0 || destinations.length === 0) {
@@ -237,6 +285,7 @@ export default function App() {
 
     setRunning(true);
     setStats(null);
+    setFlowResult(null);
     setProgress({ phase: "Preparing", done: 0, total: 1 });
 
     try {
@@ -249,7 +298,6 @@ export default function App() {
 
       if (controller.signal.aborted) return;
 
-      let heatmap: Float32Array;
       let flowStats: FlowStats;
 
       if (mode === "flow") {
@@ -260,8 +308,19 @@ export default function App() {
         const trails = simulateTrails(costField, sources, scene.grid, {
           walksPerSource: 100,
         });
-        heatmap = trails.heatmap;
         flowStats = trails.stats;
+        setFlowResult({
+          grid: scene.grid,
+          heatmapCompleted: trails.heatmapCompleted,
+          heatmapIncomplete: trails.heatmapIncomplete,
+        });
+        const canvas = compositeFlowCanvas(
+          trails.heatmapCompleted,
+          trails.heatmapIncomplete,
+          scene.grid,
+          { completed: showCompletedWalks, incomplete: showIncompleteWalks },
+        );
+        await showFlowOverlay(sdk, canvas, scene.grid);
       } else {
         setProgress({ phase: "Running agent simulation", done: 0, total: 1 });
         const agentResult = runAgentSimulation(
@@ -276,20 +335,21 @@ export default function App() {
             weights: agentWeights,
           },
         );
-        heatmap = agentResult.pheromone;
+        const heatmap = agentResult.pheromone;
         let maxVisits = 0;
         for (let i = 0; i < heatmap.length; i++) {
           maxVisits = Math.max(maxVisits, heatmap[i]);
         }
         flowStats = {
           maxVisits,
+          maxCompletedVisits: maxVisits,
+          maxIncompleteVisits: 0,
           totalWalks: 350,
           completedWalks: 0,
         };
+        const canvas = heatmapToCanvas(heatmap, scene.grid);
+        await showFlowOverlay(sdk, canvas, scene.grid);
       }
-
-      const canvas = heatmapToCanvas(heatmap, scene.grid);
-      await showFlowOverlay(sdk, canvas, scene.grid);
       await updatePointMarkers(sdk, sources, destinations, scene.grid);
       await showFlowColorbar(sdk);
       setStats(flowStats);
@@ -316,7 +376,17 @@ export default function App() {
       if (abortRef.current === controller) abortRef.current = null;
       setRunning(false);
     }
-  }, [sdk, sources, destinations, cellSize, mode, movementWeights, agentWeights]);
+  }, [
+    sdk,
+    sources,
+    destinations,
+    cellSize,
+    mode,
+    movementWeights,
+    agentWeights,
+    showCompletedWalks,
+    showIncompleteWalks,
+  ]);
 
   const clearAll = useCallback(async () => {
     if (!sdk) return;
@@ -324,6 +394,7 @@ export default function App() {
     setSources([]);
     setDestinations([]);
     setStats(null);
+    setFlowResult(null);
     setStatus({ kind: "info", message: "Cleared points and overlays." });
   }, [sdk]);
 
@@ -343,14 +414,14 @@ export default function App() {
         <div className="legend-key">
           <span className="legend-key__item">
             <span className="legend-key__swatch" style={{ backgroundColor: SOURCE_COLOR }} />
-            Origins (O1, O2…)
+            Origins — blue columns
           </span>
           <span className="legend-key__item">
             <span
               className="legend-key__swatch"
               style={{ backgroundColor: DESTINATION_COLOR }}
             />
-            Destinations (D1, D2…)
+            Destinations — orange columns
           </span>
         </div>
       </header>
@@ -388,7 +459,6 @@ export default function App() {
           <PlacementBanner
             kind="source"
             count={sources.length}
-            waitingForEscape={waitingForEscape}
             onDone={finishPicking}
           />
         ) : (
@@ -428,7 +498,6 @@ export default function App() {
           <PlacementBanner
             kind="destination"
             count={destinations.length}
-            waitingForEscape={waitingForEscape}
             onDone={finishPicking}
           />
         ) : (
@@ -555,6 +624,37 @@ export default function App() {
         </section>
       )}
 
+      {stats && mode === "flow" && (
+        <section className="field">
+          <label className="field__label">Walk layers</label>
+          <div className="field__inline">
+            <span className={showCompletedWalks ? "muted-strong" : "muted"}>
+              Completed
+            </span>
+            <WeaveToggle
+              checked={showCompletedWalks}
+              onChange={setShowCompletedWalks}
+              disabled={running}
+            />
+          </div>
+          <div className="field__inline">
+            <span className={showIncompleteWalks ? "muted-strong" : "muted"}>
+              Incomplete
+            </span>
+            <WeaveToggle
+              checked={showIncompleteWalks}
+              onChange={setShowIncompleteWalks}
+              disabled={running}
+            />
+          </div>
+          <p className="field__hint">
+            Completed walks reached a destination (orange). Incomplete walks
+            stopped early (blue). Toggle layers to compare successful routes
+            against dead-end paths.
+          </p>
+        </section>
+      )}
+
       {stats && (
         <section className="legend">
           <h2>Results</h2>
@@ -572,10 +672,28 @@ export default function App() {
               <dd>{stats.completedWalks}</dd>
             </div>
             <div>
-              <dt>Mode</dt>
-              <dd>{mode === "flow" ? "Flow map" : "Agents"}</dd>
+              <dt>Incomplete</dt>
+              <dd>{stats.totalWalks - stats.completedWalks}</dd>
             </div>
           </dl>
+          {mode === "flow" && (
+            <div className="legend-key">
+              <span className="legend-key__item">
+                <span
+                  className="legend-key__swatch"
+                  style={{ backgroundColor: "#ff5028" }}
+                />
+                Completed walks
+              </span>
+              <span className="legend-key__item">
+                <span
+                  className="legend-key__swatch"
+                  style={{ backgroundColor: "#5a6ed4" }}
+                />
+                Incomplete walks
+              </span>
+            </div>
+          )}
           <p className="field__hint">
             Warmer overlay colors indicate stronger pedestrian desire lines. Use
             this to spot missing links, informal shortcuts, and route conflicts

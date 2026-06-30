@@ -25,6 +25,7 @@ export function ensureWeaveComponent(componentPath: string): void {
 export function ensureWeave(): void {
   ensureBase();
   ensureWeaveComponent("button/weave-button.js");
+  ensureWeaveComponent("toggle/weave-toggle.js");
   ensureWeaveComponent("dropdown/weave-select.js");
   ensureWeaveComponent("banner/weave-banner.js");
 }
@@ -105,6 +106,43 @@ export function WeaveSelect({ value, options, onChange }: SelectProps) {
         ),
       )}
     </weave-select>
+  );
+}
+
+interface ToggleProps {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+export function WeaveToggle({ checked, onChange, disabled }: ToggleProps) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      onChange(Boolean(detail?.checked));
+    };
+    el.addEventListener("change", handler as EventListener);
+    el.addEventListener("input", handler as EventListener);
+    return () => {
+      el.removeEventListener("change", handler as EventListener);
+      el.removeEventListener("input", handler as EventListener);
+    };
+  }, [onChange]);
+
+  useEffect(() => {
+    const el = ref.current as (HTMLElement & { checked?: boolean }) | null;
+    if (el) el.checked = checked;
+  }, [checked]);
+
+  return (
+    <weave-toggle
+      ref={ref}
+      {...(checked ? { checked: true } : {})}
+      {...(disabled ? { disabled: true } : {})}
+    />
   );
 }
 

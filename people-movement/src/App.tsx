@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   clearAllVisuals,
+  DESTINATION_COLOR,
   getTerrainGridSpec,
   isFormaHost,
   loadForma,
   pickPoint,
   showFlowColorbar,
   showFlowOverlay,
+  SOURCE_COLOR,
   updatePointMarkers,
   type FormaSdk,
 } from "./forma/client";
+import { PlacementBanner, PointList } from "./components/PointPlacement";
 import { runAgentSimulation } from "./movement/agents";
 import { worldToGrid } from "./movement/grid";
 import { dijkstraFromGoals } from "./movement/pathfinding";
@@ -60,6 +63,7 @@ export default function App() {
   const [sources, setSources] = useState<Point[]>([]);
   const [destinations, setDestinations] = useState<Point[]>([]);
   const [picking, setPicking] = useState<"source" | "destination" | null>(null);
+  const [waitingForEscape, setWaitingForEscape] = useState(false);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState({ phase: "", done: 0, total: 0 });
   const [status, setStatus] = useState<Status>({ kind: "info", message: "Loading…" });
@@ -70,6 +74,14 @@ export default function App() {
   );
   const [agentWeights] = useState<AgentWeights>(DEFAULT_AGENT_WEIGHTS);
   const abortRef = useRef<AbortController | null>(null);
+  const stopPickingRef = useRef(false);
+  const sourcesRef = useRef<Point[]>([]);
+  const destinationsRef = useRef<Point[]>([]);
+  const pickingRef = useRef<"source" | "destination" | null>(null);
+
+  sourcesRef.current = sources;
+  destinationsRef.current = destinations;
+  pickingRef.current = picking;
 
   const cellSize = useMemo(
     () => RESOLUTION_PRESETS.find((p) => p.value === resolution)?.cellSize ?? 5,
@@ -127,35 +139,86 @@ export default function App() {
     };
   }, [sdk]);
 
-  const addPoints = useCallback(
-    async (kind: "source" | "destination") => {
+  const refreshMarkers = useCallback(
+    async (nextSources: Point[], nextDestinations: Point[]) => {
       if (!sdk) return;
+      const grid = await getTerrainGridSpec(sdk, cellSize);
+      await updatePointMarkers(sdk, nextSources, nextDestinations, grid);
+    },
+    [sdk, cellSize],
+  );
+
+  const finishPicking = useCallback(() => {
+    stopPickingRef.current = true;
+    setWaitingForEscape(true);
+    setStatus({
+      kind: "warning",
+      message: "Press Escape in the 3D view to exit placement mode.",
+    });
+  }, []);
+
+  const startPicking = useCallback(
+    async (kind: "source" | "destination") => {
+      if (!sdk || pickingRef.current) return;
+
+      stopPickingRef.current = false;
+      setWaitingForEscape(false);
       setPicking(kind);
       setStatus({
         kind: "info",
         message:
           kind === "source"
-            ? "Click in the scene to add origin points (homes, transit stops). Press Escape when done."
-            : "Click in the scene to add destinations (shops, amenities). Press Escape when done.",
+            ? "Click in the 3D scene to place origins. Markers appear on the ground as O1, O2…"
+            : "Click in the 3D scene to place destinations. Markers appear on the ground as D1, D2…",
       });
 
-      while (true) {
+      while (!stopPickingRef.current) {
         const point = await pickPoint(sdk);
         if (!point) break;
+
+        let nextSources = sourcesRef.current;
+        let nextDestinations = destinationsRef.current;
+
         if (kind === "source") {
-          setSources((prev) => [...prev, point]);
+          nextSources = [...sourcesRef.current, point];
+          setSources(nextSources);
+          sourcesRef.current = nextSources;
         } else {
-          setDestinations((prev) => [...prev, point]);
+          nextDestinations = [...destinationsRef.current, point];
+          setDestinations(nextDestinations);
+          destinationsRef.current = nextDestinations;
         }
+
+        await refreshMarkers(nextSources, nextDestinations);
       }
 
       setPicking(null);
+      setWaitingForEscape(false);
+      stopPickingRef.current = false;
       setStatus({
         kind: "info",
-        message: "Points updated. Run the simulation when ready.",
+        message: "Placement finished. Run the simulation when ready.",
       });
     },
-    [sdk],
+    [sdk, refreshMarkers],
+  );
+
+  const removeSource = useCallback(
+    (index: number) => {
+      const next = sources.filter((_, i) => i !== index);
+      setSources(next);
+      void refreshMarkers(next, destinations);
+    },
+    [sources, destinations, refreshMarkers],
+  );
+
+  const removeDestination = useCallback(
+    (index: number) => {
+      const next = destinations.filter((_, i) => i !== index);
+      setDestinations(next);
+      void refreshMarkers(sources, next);
+    },
+    [sources, destinations, refreshMarkers],
   );
 
   const runSimulation = useCallback(async () => {
@@ -277,6 +340,19 @@ export default function App() {
           move across your site — inspired by agent-based and map-based flow
           analysis.
         </p>
+        <div className="legend-key">
+          <span className="legend-key__item">
+            <span className="legend-key__swatch" style={{ backgroundColor: SOURCE_COLOR }} />
+            Origins (O1, O2…)
+          </span>
+          <span className="legend-key__item">
+            <span
+              className="legend-key__swatch"
+              style={{ backgroundColor: DESTINATION_COLOR }}
+            />
+            Destinations (D1, D2…)
+          </span>
+        </div>
       </header>
 
       <section className="field">
@@ -307,25 +383,39 @@ export default function App() {
         <p className="field__hint">
           Where people come from — residential entrances, transit stops, parking.
         </p>
-        <div className="actions">
-          <WeaveButton
-            variant="outlined"
-            onClick={() => addPoints("source")}
-            disabled={!hostReady || running || picking !== null}
-          >
-            {picking === "source" ? "Picking origins…" : "Add origins"}
-          </WeaveButton>
-          <WeaveButton
-            variant="flat"
-            onClick={() => setSources([])}
-            disabled={sources.length === 0 || running}
-          >
-            Clear
-          </WeaveButton>
-        </div>
-        {sources.length > 0 && (
-          <p className="field__hint">{sources.length} origin(s) placed</p>
+
+        {picking === "source" ? (
+          <PlacementBanner
+            kind="source"
+            count={sources.length}
+            waitingForEscape={waitingForEscape}
+            onDone={finishPicking}
+          />
+        ) : (
+          <div className="actions">
+            <WeaveButton
+              variant="outlined"
+              onClick={() => startPicking("source")}
+              disabled={!hostReady || running || picking !== null}
+            >
+              Place origins
+            </WeaveButton>
+            <WeaveButton
+              variant="flat"
+              onClick={() => setSources([])}
+              disabled={sources.length === 0 || running}
+            >
+              Clear all
+            </WeaveButton>
+          </div>
         )}
+
+        <PointList
+          kind="source"
+          points={sources}
+          onRemove={removeSource}
+          disabled={running || picking !== null}
+        />
       </section>
 
       <section className="field">
@@ -333,25 +423,39 @@ export default function App() {
         <p className="field__hint">
           Points of interest — retail, transit, schools, amenities.
         </p>
-        <div className="actions">
-          <WeaveButton
-            variant="outlined"
-            onClick={() => addPoints("destination")}
-            disabled={!hostReady || running || picking !== null}
-          >
-            {picking === "destination" ? "Picking destinations…" : "Add destinations"}
-          </WeaveButton>
-          <WeaveButton
-            variant="flat"
-            onClick={() => setDestinations([])}
-            disabled={destinations.length === 0 || running}
-          >
-            Clear
-          </WeaveButton>
-        </div>
-        {destinations.length > 0 && (
-          <p className="field__hint">{destinations.length} destination(s) placed</p>
+
+        {picking === "destination" ? (
+          <PlacementBanner
+            kind="destination"
+            count={destinations.length}
+            waitingForEscape={waitingForEscape}
+            onDone={finishPicking}
+          />
+        ) : (
+          <div className="actions">
+            <WeaveButton
+              variant="outlined"
+              onClick={() => startPicking("destination")}
+              disabled={!hostReady || running || picking !== null}
+            >
+              Place destinations
+            </WeaveButton>
+            <WeaveButton
+              variant="flat"
+              onClick={() => setDestinations([])}
+              disabled={destinations.length === 0 || running}
+            >
+              Clear all
+            </WeaveButton>
+          </div>
         )}
+
+        <PointList
+          kind="destination"
+          points={destinations}
+          onRemove={removeDestination}
+          disabled={running || picking !== null}
+        />
       </section>
 
       <section className="field">

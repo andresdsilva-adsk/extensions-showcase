@@ -7,6 +7,9 @@ export type FormaSdk = Awaited<
 const FLOW_TEXTURE = "people-movement-flow";
 const MARKER_TEXTURE = "people-movement-markers";
 
+const SOURCE_COLOR = "#0696d7";
+const DESTINATION_COLOR = "#e07b00";
+
 export function isFormaHost(): boolean {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
@@ -28,6 +31,11 @@ export async function pickPoint(Forma: FormaSdk): Promise<Point | null> {
   return { x: pos.x, y: pos.y };
 }
 
+function markerRadiusPx(cellSize: number): number {
+  // ~4 m world radius, at least 7 px on the overlay canvas
+  return Math.max(7, (4 / cellSize) * 1.2);
+}
+
 function drawMarkerCanvas(
   sources: Point[],
   destinations: Point[],
@@ -44,19 +52,63 @@ function drawMarkerCanvas(
     y: (grid.bbox.max.y - point.y) / grid.cellSize,
   });
 
-  const drawMarker = (point: Point, color: string) => {
+  const radius = markerRadiusPx(grid.cellSize);
+
+  const drawMarker = (
+    point: Point,
+    color: string,
+    label: string,
+    index: number,
+  ) => {
     const { x, y } = toCanvas(point);
+
+    // Soft halo so markers read on any background
     ctx.beginPath();
-    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.arc(x, y, radius + 5, 0, Math.PI * 2);
+    ctx.fillStyle = color === SOURCE_COLOR ? "rgba(6, 150, 215, 0.25)" : "rgba(224, 123, 0, 0.25)";
+    ctx.fill();
+
+    // Outer ring
+    ctx.beginPath();
+    ctx.arc(x, y, radius + 1.5, 0, Math.PI * 2);
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+
+    // Fill
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "#ffffff";
+
+    // Label (O1, D2, …)
+    const text = `${label}${index + 1}`;
+    ctx.font = `bold ${Math.max(9, radius)}px Artifakt Element, system-ui, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(0, 0, 0, 0.35)";
+    ctx.strokeText(text, x, y);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(text, x, y);
+
+    // Crosshair for precise position
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - radius * 0.45, y);
+    ctx.lineTo(x + radius * 0.45, y);
+    ctx.moveTo(x, y - radius * 0.45);
+    ctx.lineTo(x, y + radius * 0.45);
     ctx.stroke();
   };
 
-  for (const point of sources) drawMarker(point, "#0696d7");
-  for (const point of destinations) drawMarker(point, "#e07b00");
+  for (let i = 0; i < sources.length; i++) {
+    drawMarker(sources[i], SOURCE_COLOR, "O", i);
+  }
+  for (let i = 0; i < destinations.length; i++) {
+    drawMarker(destinations[i], DESTINATION_COLOR, "D", i);
+  }
 
   return canvas;
 }
@@ -170,3 +222,9 @@ export async function getTerrainGridSpec(Forma: FormaSdk, cellSize: number): Pro
   const ny = Math.max(2, Math.floor(height / effectiveCellSize) + 1);
   return { nx, ny, cellSize: effectiveCellSize, bbox };
 }
+
+export function formatPoint(point: Point): string {
+  return `${point.x.toFixed(1)}, ${point.y.toFixed(1)} m`;
+}
+
+export { SOURCE_COLOR, DESTINATION_COLOR };

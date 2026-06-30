@@ -126,17 +126,20 @@ export function heatmapToCanvas(
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
 
-  let maxLog = 0;
-  const logValues = new Float32Array(heatmap.length);
+  const positives: number[] = [];
   for (let i = 0; i < heatmap.length; i++) {
-    const logVal = Math.log(heatmap[i] + 1);
-    logValues[i] = logVal;
-    maxLog = Math.max(maxLog, logVal);
+    if (heatmap[i] > 0) positives.push(Math.log(heatmap[i] + 1));
   }
+  positives.sort((a, b) => a - b);
+  const maxLog =
+    positives.length > 0
+      ? positives[Math.min(positives.length - 1, Math.floor(positives.length * 0.98))]
+      : 0;
 
   const image = ctx.createImageData(grid.nx, grid.ny);
   for (let i = 0; i < heatmap.length; i++) {
-    const alpha = maxLog > 0 ? logValues[i] / maxLog : 0;
+    const logVal = Math.log(heatmap[i] + 1);
+    const alpha = maxLog > 0 ? Math.min(1, logVal / maxLog) : 0;
     image.data[i * 4 + 0] = color.r;
     image.data[i * 4 + 1] = color.g;
     image.data[i * 4 + 2] = color.b;

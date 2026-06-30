@@ -299,6 +299,7 @@ export default function App() {
       if (controller.signal.aborted) return;
 
       let flowStats: FlowStats;
+      let agentActiveCells: number | undefined;
 
       if (mode === "flow") {
         setProgress({ phase: "Computing cost field", done: 0, total: 1 });
@@ -323,6 +324,8 @@ export default function App() {
         await showFlowOverlay(sdk, canvas, scene.grid);
       } else {
         setProgress({ phase: "Running agent simulation", done: 0, total: 1 });
+        const goals = destinations.map((point) => worldToGrid(point, scene.grid));
+        const costField = dijkstraFromGoals(scene.costGrid, goals);
         const agentResult = runAgentSimulation(
           scene.grid,
           sources,
@@ -330,9 +333,10 @@ export default function App() {
           scene.roadMask,
           scene.buildingMask,
           {
-            agentCount: 350,
-            steps: 900,
+            agentCount: 400,
+            steps: 1200,
             weights: agentWeights,
+            costField,
           },
         );
         const heatmap = agentResult.pheromone;
@@ -344,11 +348,12 @@ export default function App() {
           maxVisits,
           maxCompletedVisits: maxVisits,
           maxIncompleteVisits: 0,
-          totalWalks: 350,
+          totalWalks: 400,
           completedWalks: 0,
         };
         const canvas = heatmapToCanvas(heatmap, scene.grid);
         await showFlowOverlay(sdk, canvas, scene.grid);
+        agentActiveCells = agentResult.activeCells;
       }
       await updatePointMarkers(sdk, sources, destinations, scene.grid);
       await showFlowColorbar(sdk);
@@ -359,13 +364,27 @@ export default function App() {
           ? Math.round((flowStats.completedWalks / flowStats.totalWalks) * 100)
           : 0;
 
-      setStatus({
-        kind: "success",
-        message:
-          mode === "flow"
-            ? `Flow analysis complete. ${flowStats.completedWalks} of ${flowStats.totalWalks} walks reached a destination (${completionPct}%).`
-            : `Agent simulation complete. Pheromone trails drawn from ${flowStats.totalWalks} agents.`,
-      });
+      if (mode === "flow") {
+        setStatus({
+          kind: "success",
+          message: `Flow analysis complete. ${flowStats.completedWalks} of ${flowStats.totalWalks} walks reached a destination (${completionPct}%).`,
+        });
+      } else {
+        const cells = agentActiveCells ?? 0;
+        if (cells < 20) {
+          setStatus({
+            kind: "warning",
+            message:
+              `Agent simulation finished but trails look sparse (${cells} active cells). ` +
+              "Try adding more origins/destinations or switching to flow map mode.",
+          });
+        } else {
+          setStatus({
+            kind: "success",
+            message: `Agent simulation complete. Pheromone trails from ${flowStats.totalWalks} agents (${cells} active cells).`,
+          });
+        }
+      }
     } catch (err) {
       if ((err as DOMException)?.name === "AbortError") return;
       setStatus({

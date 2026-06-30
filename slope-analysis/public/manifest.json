@@ -1,0 +1,16 @@
+{
+  "$schema": "https://app.autodeskforma.com/schemas/extension-manifest.json",
+  "version": 1,
+  "id": "slope-analysis",
+  "title": "Terrain Slope Analysis",
+  "description": "Reads the project terrain and derives a slope surface, drawn over the ground with a classified color legend.",
+  "author": "Your team",
+  "embeddedViews": [
+    {
+      "id": "slope-analysis-panel",
+      "displayName": "Slope Analysis",
+      "type": "panel",
+      "url": "index.html"
+    }
+  ]
+}

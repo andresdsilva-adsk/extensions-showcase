@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Forma Extensions Showcase</title>
+    <link
+      rel="stylesheet"
+      href="https://app.autodeskforma.eu/design-system/v2/forma/styles/base.css"
+    />
+    <style>
+      body {
+        font-family: "Artifakt Element", system-ui, Arial, sans-serif;
+        margin: 0;
+        background: #fafafa;
+        color: #1a1a1a;
+      }
+      .wrap {
+        max-width: 760px;
+        margin: 0 auto;
+        padding: 48px 24px;
+      }
+      h1 {
+        font-size: 28px;
+        margin: 0 0 8px;
+      }
+      .lede {
+        color: #6e6e6e;
+        margin: 0 0 32px;
+        line-height: 1.5;
+      }
+      .card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 20px;
+        background: #fff;
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .card:hover {
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        transform: translateY(-1px);
+      }
+      .card h2 {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+      .card p {
+        margin: 0;
+        color: #6e6e6e;
+        line-height: 1.5;
+      }
+      .tag {
+        display: inline-block;
+        font-size: 11px;
+        font-weight: 600;
+        color: #0696d7;
+        background: #e6f5fb;
+        border-radius: 4px;
+        padding: 2px 8px;
+        margin-bottom: 12px;
+      }
+      footer {
+        margin-top: 40px;
+        color: #9a9a9a;
+        font-size: 12px;
+      }
+      a {
+        color: #0696d7;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Forma Extensions Showcase</h1>
+      <p class="lede">
+        A collection of Autodesk Forma Site Design embedded-view extensions.
+        Register an extension in Forma by pointing it at the extension's hosted
+        URL below.
+      </p>
+
+      <a class="card" href="./slope-analysis/">
+        <span class="tag">Analysis panel</span>
+        <h2>Terrain Slope Analysis</h2>
+        <p>
+          Reads the project terrain and derives a classified slope surface using
+          a 3×3 fitted-plane (Horn) estimator, drawn over the ground with a
+          legend colorbar.
+        </p>
+      </a>
+
+      <footer>
+        Built with the
+        <a href="https://app.autodeskforma.com/forma-embedded-view-sdk/docs/"
+          >Forma Embedded View SDK</a
+        >.
+      </footer>
+    </div>
+  </body>
+</html>

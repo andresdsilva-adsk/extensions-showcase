@@ -1,0 +1,157 @@
+:root {
+  --sa-gap: 12px;
+  --sa-radius: 4px;
+  --sa-border: #d6d6d6;
+  --sa-muted: #6e6e6e;
+  --sa-text: #1a1a1a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Artifakt Element", system-ui, Avenir, Helvetica, Arial,
+    sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--sa-text);
+  background: #fafafa;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sa-gap);
+  padding: 16px;
+  max-width: 360px;
+}
+
+.panel__header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.panel__subtitle {
+  margin: 0;
+  color: var(--sa-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field__label {
+  font-weight: 600;
+}
+
+.field__hint {
+  margin: 0;
+  color: var(--sa-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.field__inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.muted {
+  color: var(--sa-muted);
+}
+
+.muted-strong {
+  color: var(--sa-text);
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.status weave-banner {
+  display: block;
+}
+
+.progress__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #e6e6e6;
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: #0696d7;
+  transition: width 0.2s ease;
+}
+
+.legend h2,
+.stats + h2 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 4px 0 6px;
+}
+
+.legend__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.legend__row {
+  display: grid;
+  grid-template-columns: 16px 1fr auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend__swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+}
+
+.legend__value {
+  color: var(--sa-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin: 12px 0 0;
+}
+
+.stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats dt {
+  color: var(--sa-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

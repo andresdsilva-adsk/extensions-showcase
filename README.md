@@ -10,6 +10,13 @@ URL.
 | --- | --- | --- |
 | [Terrain Slope Analysis](./slope-analysis/) | Analysis panel | `https://andresdsilva-adsk.github.io/extensions-showcase/slope-analysis/` |
 
+### Terrain Slope Analysis
+
+Reads the project terrain and derives a classified slope surface (3×3
+fitted-plane / Horn estimator), drawn over the ground with a legend colorbar.
+
+![Terrain Slope Analysis](./slope-analysis/docs/slope-percent.png)
+
 ## Live site
 
 - Showcase landing: https://andresdsilva-adsk.github.io/extensions-showcase/

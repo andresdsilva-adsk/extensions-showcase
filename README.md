@@ -9,6 +9,7 @@ URL.
 | Extension | Type | Hosted URL |
 | --- | --- | --- |
 | [Terrain Slope Analysis](./slope-analysis/) | Analysis panel | `https://andresdsilva-adsk.github.io/extensions-showcase/slope-analysis/` |
+| [People Movement](./people-movement/) | Analysis panel | `https://andresdsilva-adsk.github.io/extensions-showcase/people-movement/` |
 
 ### Terrain Slope Analysis
 
@@ -17,10 +18,20 @@ fitted-plane / Horn estimator), drawn over the ground with a legend colorbar.
 
 ![Terrain Slope Analysis](./slope-analysis/docs/slope-percent.png)
 
+### People Movement
+
+Predicts pedestrian desire lines from user-placed origins and destinations.
+Builds a traversability grid from terrain slope, building footprints, and road
+networks, then runs either a map-based flow simulation (cost field + probabilistic
+trails) or an agent-based pheromone simulation. Inspired by
+[Pathmaker](https://github.com/spacemakerai/extendathon-pathmaker) and people-movement
+analysis workflows used in master planning.
+
 ## Live site
 
 - Showcase landing: https://andresdsilva-adsk.github.io/extensions-showcase/
 - Slope Analysis: https://andresdsilva-adsk.github.io/extensions-showcase/slope-analysis/
+- People Movement: https://andresdsilva-adsk.github.io/extensions-showcase/people-movement/
 
 ## How deployment works
 

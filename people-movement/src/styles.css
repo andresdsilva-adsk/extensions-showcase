@@ -1,0 +1,120 @@
+:root {
+  --pm-gap: 12px;
+  --pm-muted: #6e6e6e;
+  --pm-text: #1a1a1a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Artifakt Element", system-ui, Avenir, Helvetica, Arial,
+    sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--pm-text);
+  background: #fafafa;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pm-gap);
+  padding: 16px;
+  max-width: 360px;
+}
+
+.panel__header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.panel__subtitle {
+  margin: 0;
+  color: var(--pm-muted);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field__label {
+  font-weight: 600;
+}
+
+.field__hint {
+  margin: 0;
+  color: var(--pm-muted);
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status weave-banner {
+  display: block;
+}
+
+.progress__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #e6e6e6;
+  overflow: hidden;
+}
+
+.progress__fill {
+  height: 100%;
+  background: #0696d7;
+  transition: width 0.2s ease;
+}
+
+.legend h2 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 4px 0 6px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin: 0;
+}
+
+.stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stats dt {
+  color: var(--pm-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.advanced input[type="range"] {
+  width: 100%;
+}
+
+.advanced label.field__label {
+  font-weight: 500;
+}

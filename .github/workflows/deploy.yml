@@ -38,12 +38,19 @@ jobs:
           npm install
           npm run build
 
+      - name: Build people-movement
+        working-directory: people-movement
+        run: |
+          npm install
+          npm run build
+
       - name: Assemble showcase site
         run: |
           rm -rf _site
-          mkdir -p _site/slope-analysis
+          mkdir -p _site/slope-analysis _site/people-movement
           cp index.html _site/index.html
           cp -r slope-analysis/dist/. _site/slope-analysis/
+          cp -r people-movement/dist/. _site/people-movement/
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

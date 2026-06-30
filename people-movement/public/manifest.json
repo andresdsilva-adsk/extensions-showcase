@@ -1,0 +1,16 @@
+{
+  "$schema": "https://app.autodeskforma.com/schemas/extension-manifest.json",
+  "version": 1,
+  "id": "people-movement",
+  "title": "People Movement",
+  "description": "Predict pedestrian desire lines from origins to destinations using terrain, building, and road context — inspired by agent-based and map-based flow analysis.",
+  "author": "Your team",
+  "embeddedViews": [
+    {
+      "id": "people-movement-panel",
+      "displayName": "People Movement",
+      "type": "panel",
+      "url": "index.html"
+    }
+  ]
+}
